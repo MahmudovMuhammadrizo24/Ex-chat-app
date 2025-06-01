@@ -1,25 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ex_chat_app/service/shared_pref.dart';
 
 class DatabaseMethods {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  /// Foydalanuvchi ma'lumotlarini qo‘shadi
-  Future<void> addUserDetails(
-    Map<String, dynamic> userInfoMap,
-    String id,
-  ) async {
-    await _firestore.collection("users").doc(id).set(userInfoMap);
-  }
-
-  /// Email bo‘yicha foydalanuvchini qidiradi
-  Future<QuerySnapshot> getUserByemail(String email) async {
+  Future addUserDetails(Map<String, dynamic> userInfoMap, String id) async {
     return await FirebaseFirestore.instance
         .collection("users")
-        .where("email", isEqualTo: email)
+        .doc(id)
+        .set(userInfoMap);
+  }
+
+  Future<QuerySnapshot> getUserbyemail(String email) async {
+    return await FirebaseFirestore.instance
+        .collection("users")
+        .where("E-mail", isEqualTo: email)
         .get();
   }
 
-  /// Qidiruv: foydalanuvchi username bo‘yicha (SearchKey orqali)
   Future<QuerySnapshot> Search(String username) async {
     return await FirebaseFirestore.instance
         .collection("users")
@@ -27,26 +23,24 @@ class DatabaseMethods {
         .get();
   }
 
-  /// Chat xonasini yaratadi (mavjud bo‘lmasa)
-  Future<void> createChatRoom(
-    String chatRoomId,
-    Map<String, dynamic> chatRoomInfoMap,
-  ) async {
-    final snapshot =
-        await _firestore.collection("chatrooms").doc(chatRoomId).get();
-    if (!snapshot.exists) {
-      await _firestore
+  createChatRoom(
+      String chatRoomId, Map<String, dynamic> chatRoomInfoMap) async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection("chatrooms")
+        .doc(chatRoomId)
+        .get();
+    if (snapshot.exists) {
+      return true;
+    } else {
+      return FirebaseFirestore.instance
           .collection("chatrooms")
           .doc(chatRoomId)
-          .set(chatRoomInfoMap, SetOptions(merge: true));
+          .set(chatRoomInfoMap);
     }
   }
 
-  Future addMessage(
-    String chatRoomId,
-    String messageId,
-    Map<String, dynamic> messageInfoMap,
-  ) async {
+  Future addMessage(String chatRoomId, String messageId,
+      Map<String, dynamic> messageInfoMap) async {
     return FirebaseFirestore.instance
         .collection("chatrooms")
         .doc(chatRoomId)
@@ -55,12 +49,38 @@ class DatabaseMethods {
         .set(messageInfoMap);
   }
 
-  Future<void> updateLastMessageSend(
-    String chatRoomId, Map<String, dynamic> lastMessageInfoMap) async {
-  return await FirebaseFirestore.instance
-      .collection("chatrooms")
-      .doc(chatRoomId)
-      .update(lastMessageInfoMap);
+  updateLastMessageSend(
+      String chatRoomId, Map<String, dynamic> lastMessageInfoMap) {
+    return FirebaseFirestore.instance
+        .collection("chatrooms")
+        .doc(chatRoomId)
+        .update(lastMessageInfoMap);
+  }
+
+  Future<Stream<QuerySnapshot>> getChatRoomMessages(chatRoomId) async {
+    return FirebaseFirestore.instance
+        .collection("chatrooms")
+        .doc(chatRoomId)
+        .collection("chats")
+        .orderBy("time", descending: true)
+        .snapshots();
+  }
+
+  Future<QuerySnapshot> getUserInfo(String username) async {
+    return await FirebaseFirestore.instance
+        .collection("users")
+        .where("username", isEqualTo: username)
+        .get();
+  }
+
+  Future<Stream<QuerySnapshot>> getChatRooms() async {
+    String? myUsername = await SharedPreferenceHelper().getUserName();
+    print(myUsername);
+    return FirebaseFirestore.instance
+        .collection("chatrooms")
+        .orderBy("time", descending: true)
+        .where("users", arrayContains: myUsername!)
+        .snapshots();
+  }
 }
 
-}
