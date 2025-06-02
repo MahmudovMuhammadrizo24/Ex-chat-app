@@ -261,7 +261,7 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  TextEditingController messagecontroller = new TextEditingController();
+  TextEditingController messagecontroller = TextEditingController();
   String? myUserName, myProfilePic, myName, myEmail, messageId, chatRoomId;
   Stream? messageStream;
 
@@ -295,34 +295,56 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  Widget chatMessageTile(String message, bool sendByMe) {
-    return Row(
-      mainAxisAlignment:
-          sendByMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+  Widget chatMessageTile(String message, DateTime? time, bool sendByMe) {
+    String formattedTime =
+        time != null ? DateFormat('h:mm a').format(time) : "";
+    return Column(
+      crossAxisAlignment:
+          sendByMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
-        Flexible(
-            child: Container(
-          padding: EdgeInsets.all(16),
-          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: BoxDecoration(
-              borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  bottomRight:
-                      sendByMe ? Radius.circular(0) : Radius.circular(24),
-                  topRight: Radius.circular(24),
-                  bottomLeft:
-                      sendByMe ? Radius.circular(24) : Radius.circular(0)),
-              color: sendByMe
-                  ? Color.fromARGB(255, 234, 236, 240)
-                  : Color.fromARGB(255, 211, 228, 243)),
-          child: Text(
-            message,
-            style: TextStyle(
-                color: Colors.black,
-                fontSize: 15.0,
-                fontWeight: FontWeight.w500),
-          ),
-        )),
+        Row(
+          mainAxisAlignment:
+              sendByMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            Flexible(
+              child: Container(
+                padding: EdgeInsets.all(16),
+                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    bottomRight: sendByMe ? Radius.circular(0) : Radius.circular(24),
+                    topRight: Radius.circular(24),
+                    bottomLeft: sendByMe ? Radius.circular(24) : Radius.circular(0),
+                  ),
+                  color: sendByMe
+                      ? Color.fromARGB(255, 234, 236, 240)
+                      : Color.fromARGB(255, 211, 228, 243),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      message,
+                      style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 15.0,
+                          fontWeight: FontWeight.w500),
+                    ),
+                    SizedBox(height: 5),
+                    Text(
+                      formattedTime,
+                      style: TextStyle(
+                          color: Colors.black54,
+                          fontSize: 12.0,
+                          fontWeight: FontWeight.w400),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -338,26 +360,29 @@ class _ChatPageState extends State<ChatPage> {
                   reverse: true,
                   itemBuilder: (context, index) {
                     DocumentSnapshot ds = snapshot.data.docs[index];
+                    DateTime? messageTime;
+                    if (ds["time"] != null) {
+                      messageTime = (ds["time"] as Timestamp).toDate();
+                    }
                     return chatMessageTile(
-                        ds["message"], myUserName == ds["sendBy"]);
+                      ds["message"],
+                      messageTime,
+                      myUserName == ds["sendBy"],
+                    );
                   })
-              : Center(
-                  child: CircularProgressIndicator(),
-                );
+              : Center(child: CircularProgressIndicator());
         });
   }
 
   addMessage(bool sendClicked) {
-    if (messagecontroller.text != "") {
+    if (messagecontroller.text.isNotEmpty) {
       String message = messagecontroller.text;
       messagecontroller.text = "";
 
-      DateTime now = DateTime.now();
-      String formattedDate = DateFormat('h:mma').format(now);
       Map<String, dynamic> messageInfoMap = {
         "message": message,
         "sendBy": myUserName,
-        "ts": formattedDate,
+        "ts": DateFormat('h:mm a').format(DateTime.now()),
         "time": FieldValue.serverTimestamp(),
         "imgUrl": myProfilePic,
       };
@@ -368,7 +393,7 @@ class _ChatPageState extends State<ChatPage> {
           .then((value) {
         Map<String, dynamic> lastMessageInfoMap = {
           "lastMessage": message,
-          "lastMessageSendTs": formattedDate,
+          "lastMessageSendTs": messageInfoMap["ts"],
           "time": FieldValue.serverTimestamp(),
           "lastMessageSendBy": myUserName,
         };
@@ -382,7 +407,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   getAndSetMessages() async {
-    messageStream = await DatabaseMethods().getChatRoomMessages(chatRoomId);
+    messageStream = await DatabaseMethods().getChatRoomMessages(chatRoomId!);
     setState(() {});
   }
 
@@ -396,14 +421,16 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             Container(
               margin: EdgeInsets.only(top: 50.0),
-                width: MediaQuery.of(context).size.width,
-                height: MediaQuery.of(context).size.height / 1.12,
-                decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(30),
-                        topRight: Radius.circular(30))),
-                child: chatMessage()),
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height / 1.12,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30)),
+              ),
+              child: chatMessage(),
+            ),
             Padding(
               padding: const EdgeInsets.only(left: 10.0),
               child: Row(
@@ -418,9 +445,7 @@ class _ChatPageState extends State<ChatPage> {
                       color: Color(0Xffc199cd),
                     ),
                   ),
-                  SizedBox(
-                    width: 90.0,
-                  ),
+                  SizedBox(width: 90.0),
                   Text(
                     widget.name,
                     style: TextStyle(
@@ -432,14 +457,12 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             Container(
-                margin:
-                      EdgeInsets.only(left: 20.0, right: 20.0, bottom: 20.0),
+              margin: EdgeInsets.only(left: 20.0, right: 20.0, bottom: 20.0),
               alignment: Alignment.bottomCenter,
               child: Material(
                 elevation: 5.0,
                 borderRadius: BorderRadius.circular(30),
                 child: Container(
-                
                   padding: EdgeInsets.all(10),
                   decoration: BoxDecoration(
                       color: Colors.white,
@@ -447,14 +470,15 @@ class _ChatPageState extends State<ChatPage> {
                   child: TextField(
                     controller: messagecontroller,
                     decoration: InputDecoration(
-                        border: InputBorder.none,
-                        hintText: "Type a message",
-                        hintStyle: TextStyle(color: Colors.black45),
-                        suffixIcon: GestureDetector(
-                          onTap: (){
+                      border: InputBorder.none,
+                      hintText: "Type a message",
+                      hintStyle: TextStyle(color: Colors.black45),
+                      suffixIcon: GestureDetector(
+                          onTap: () {
                             addMessage(true);
                           },
-                          child: Icon(Icons.send_rounded))),
+                          child: Icon(Icons.send_rounded)),
+                    ),
                   ),
                 ),
               ),
